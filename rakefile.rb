@@ -8,43 +8,15 @@ LIB_PATH = File.expand_path("lib")
 
 configuration = ENV['Configuration'] || "Debug"
 
-FEEDS = [
-	#Your internal repo can go here
-	"http://go.microsoft.com/fwlink/?LinkID=206669"
-]
-
 task :default => :all
 
-task :all => [:clean,:dependencies,:build,:specs,:copy]
+task :all => [:clean,:build,:specs,:copy]
 
 task :clean do
 	rmtree BUILD_PATH
 end
 
-task :dependencies do
-	require 'rexml/document'	
-	file = File.new("packages.config")
-	doc = REXML::Document.new(file)
-	doc.elements.each("packages/package") do |elm|
-		package=elm.attributes["id"]
-		version=elm.attributes["version"]
-
-		packagePath="#{LIB_PATH}/#{package}"
-		versionInfo="#{packagePath}/version.info"
-		currentVersion=IO.read(versionInfo) if File.exists?(versionInfo)
-		packageExists = File.directory?(packagePath)
-		
-		if(!(version or packageExists) or currentVersion!= version) then
-			feedsArg = FEEDS.map{ |x| "-Source " + x }.join (' ')
-			versionArg = "-Version #{version}" if version
-			sh "\"#{TOOLS_PATH}/nuget/nuget.exe\" Install #{package} #{versionArg} -o \"#{LIB_PATH}\" #{feedsArg} -ExcludeVersion" do |ok,results|
-				File.open(versionInfo,'w'){|f| f.write(version)} if ok
-			end
-		end
-	end
-end
-
-msbuild :build=>[:dependencies] do |msb|
+msbuild :build do |msb|
 	msb.properties :configuration => configuration
 	msb.targets :Clean, :Build
 	msb.verbosity = "minimal"
@@ -52,8 +24,8 @@ msbuild :build=>[:dependencies] do |msb|
 end
 
 mspec :specs => [:build] do |mspec|
-	mspec.command = "lib/Machine.Specifications/tools/mspec-clr4.exe"
-	mspec.assemblies Dir.glob('specs/**/*Specs.dll')
+	mspec.command = "packages/Machine.Specifications.0.6.2/tools/mspec-clr4.exe"
+	mspec.assemblies Dir.glob('specs/**/bin/*Debug/*Specs.dll')
 end
 
 task :copy => [:specs] do
